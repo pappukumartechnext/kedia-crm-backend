@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const app = express();
 
-// FIXED CORS Configuration
+// Enhanced CORS Configuration
 app.use(cors({
     origin: [
         'http://localhost:3000',
@@ -95,16 +95,74 @@ app.get('/api/test-db', async (req, res) => {
     }
 });
 
-// RESET AND CREATE DEFAULT USERS FUNCTION
-async function resetAndCreateDefaultUsers() {
+// DEBUG: List all users endpoint
+app.get('/api/debug-users', async (req, res) => {
     try {
-        console.log('🔄 Resetting users...');
-        
-        // Delete existing users
-        await User.deleteMany({});
-        console.log('🗑️  Existing users deleted');
+        const users = await User.find().select('-password');
+        res.json({
+            success: true,
+            totalUsers: users.length,
+            users: users
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch users',
+            error: error.message
+        });
+    }
+});
 
-        // Create admin user with fresh date
+// DEBUG: Check specific user
+app.get('/api/debug-user/:email', async (req, res) => {
+    try {
+        const user = await User.findOne({ email: req.params.email });
+        if (!user) {
+            return res.json({
+                success: false,
+                message: `User with email ${req.params.email} not found`
+            });
+        }
+
+        // Test password verification
+        const testPassword = 'admin123';
+        const isPasswordValid = await bcrypt.compare(testPassword, user.password);
+
+        res.json({
+            success: true,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                type: user.type,
+                dateAdded: user.dateAdded,
+                isActive: user.isActive
+            },
+            passwordTest: {
+                testPassword: testPassword,
+                isPasswordValid: isPasswordValid,
+                hashedPassword: user.password.substring(0, 20) + '...'
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to check user',
+            error: error.message
+        });
+    }
+});
+
+// COMPLETE RESET ENDPOINT - This will fix login issues
+app.post('/api/reset-users-complete', async (req, res) => {
+    try {
+        console.log('🔄 COMPLETE USER RESET INITIATED...');
+        
+        // Delete all existing users
+        const deleteResult = await User.deleteMany({});
+        console.log(`🗑️  Deleted ${deleteResult.deletedCount} users`);
+        
+        // Create fresh admin user
         const adminPassword = await bcrypt.hash('admin123', 12);
         const adminUser = new User({
             name: 'Admin User',
@@ -113,12 +171,13 @@ async function resetAndCreateDefaultUsers() {
             type: 'admin',
             phone: '9876543210',
             department: 'Administration',
-            dateAdded: new Date() // Fresh current date
+            dateAdded: new Date(),
+            isActive: true
         });
         await adminUser.save();
-        console.log('✅ Default admin user created');
+        console.log('✅ Admin user created:', adminUser.email);
 
-        // Create staff user with fresh date
+        // Create fresh staff user
         const staffPassword = await bcrypt.hash('staff123', 12);
         const staffUser = new User({
             name: 'Staff User',
@@ -127,42 +186,42 @@ async function resetAndCreateDefaultUsers() {
             type: 'staff',
             phone: '9876543211',
             department: 'Operations',
-            dateAdded: new Date() // Fresh current date
+            dateAdded: new Date(),
+            isActive: true
         });
         await staffUser.save();
-        console.log('✅ Default staff user created');
+        console.log('✅ Staff user created:', staffUser.email);
 
-        console.log('✅ Default users reset completed');
-        
-        // Verify the users were created
-        const users = await User.find().select('-password');
-        console.log(`📊 Total users in database: ${users.length}`);
-        
-    } catch (error) {
-        console.error('❌ Error resetting users:', error);
-        throw error;
-    }
-}
+        // Verify creation
+        const userCount = await User.countDocuments();
+        const users = await User.find().select('name email type dateAdded isActive');
 
-// TEMPORARY RESET ENDPOINT - REMOVE AFTER USE
-app.post('/api/reset-users', async (req, res) => {
-    try {
-        console.log('🔄 Manual user reset requested...');
-        await resetAndCreateDefaultUsers();
-        res.json({ 
+        res.json({
             success: true,
-            message: 'Users reset successfully! You can now login with:',
-            credentials: {
+            message: '✅ USERS RESET SUCCESSFULLY! You can now login with:',
+            resetDetails: {
+                deletedUsers: deleteResult.deletedCount,
+                createdUsers: userCount,
+                newUsers: users
+            },
+            loginCredentials: {
                 admin: { email: 'admin@kedia.com', password: 'admin123' },
                 staff: { email: 'staff@kedia.com', password: 'staff123' }
-            }
+            },
+            nextSteps: [
+                '1. Try logging in with admin@kedia.com / admin123',
+                '2. If successful, you can remove the reset endpoints',
+                '3. Test both admin and staff accounts'
+            ]
         });
+
     } catch (error) {
         console.error('❌ Reset failed:', error);
         res.status(500).json({ 
             success: false,
             message: 'Reset failed', 
-            error: error.message 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'production' ? null : error.stack
         });
     }
 });
@@ -170,9 +229,12 @@ app.post('/api/reset-users', async (req, res) => {
 // Create default users function (for normal startup)
 async function createDefaultUsers() {
     try {
-        // Check if admin user already exists
+        console.log('🔍 Checking for default users...');
+        
+        // Check if admin user exists
         const adminExists = await User.findOne({ email: 'admin@kedia.com' });
         if (!adminExists) {
+            console.log('👤 Creating admin user...');
             const adminPassword = await bcrypt.hash('admin123', 12);
             const adminUser = new User({
                 name: 'Admin User',
@@ -181,7 +243,8 @@ async function createDefaultUsers() {
                 type: 'admin',
                 phone: '9876543210',
                 department: 'Administration',
-                dateAdded: new Date()
+                dateAdded: new Date(),
+                isActive: true
             });
             await adminUser.save();
             console.log('✅ Default admin user created');
@@ -189,9 +252,10 @@ async function createDefaultUsers() {
             console.log('✅ Admin user already exists');
         }
 
-        // Check if staff user already exists
+        // Check if staff user exists
         const staffExists = await User.findOne({ email: 'staff@kedia.com' });
         if (!staffExists) {
+            console.log('👤 Creating staff user...');
             const staffPassword = await bcrypt.hash('staff123', 12);
             const staffUser = new User({
                 name: 'Staff User',
@@ -200,7 +264,8 @@ async function createDefaultUsers() {
                 type: 'staff',
                 phone: '9876543211',
                 department: 'Operations',
-                dateAdded: new Date()
+                dateAdded: new Date(),
+                isActive: true
             });
             await staffUser.save();
             console.log('✅ Default staff user created');
@@ -208,9 +273,7 @@ async function createDefaultUsers() {
             console.log('✅ Staff user already exists');
         }
 
-        console.log('✅ Default users setup completed');
-        
-        // Log current user count
+        // Log current user status
         const userCount = await User.countDocuments();
         console.log(`📊 Total users in database: ${userCount}`);
         
@@ -267,14 +330,12 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 Health check: http://0.0.0.0:${PORT}/health`);
     console.log(`📍 CORS Test: http://0.0.0.0:${PORT}/api/cors-test`);
-    console.log(`📍 User Reset: http://0.0.0.0:${PORT}/api/reset-users (TEMPORARY)`);
+    console.log(`📍 Debug Users: http://0.0.0.0:${PORT}/api/debug-users`);
+    console.log(`📍 User Reset: http://0.0.0.0:${PORT}/api/reset-users-complete (USE THIS TO FIX LOGIN)`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
-    console.log('✅ CORS configured for:');
-    console.log('   - http://localhost:3000');
-    console.log('   - http://localhost:8080');
-    console.log('   - https://remarkable-sunburst-88f5ff.netlify.app');
-    console.log('   - https://*.netlify.app');
     console.log('\n🔑 Default Login Credentials:');
     console.log('   Admin: admin@kedia.com / admin123');
     console.log('   Staff: staff@kedia.com / staff123');
+    console.log('\n🚨 TROUBLESHOOTING:');
+    console.log('   If login fails, visit the reset endpoint above');
 });
