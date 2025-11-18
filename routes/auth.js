@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
@@ -63,7 +62,6 @@ router.get('/verify', async (req, res) => {
   }
 });
 
-=======
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
@@ -128,5 +126,4 @@ router.get('/verify', async (req, res) => {
   }
 });
 
->>>>>>> 846c1211543b726bac61a5334e07086ffc79e154
 module.exports = router;
