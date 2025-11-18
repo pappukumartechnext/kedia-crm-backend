@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema({
@@ -42,7 +41,6 @@ const taskSchema = new mongoose.Schema({
   timestamps: true
 });
 
-=======
 const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema({
@@ -86,5 +84,4 @@ const taskSchema = new mongoose.Schema({
   timestamps: true
 });
 
->>>>>>> 846c1211543b726bac61a5334e07086ffc79e154
 module.exports = mongoose.model('Task', taskSchema);
