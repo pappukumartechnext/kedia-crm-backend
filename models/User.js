@@ -37,7 +37,9 @@ const userSchema = new mongoose.Schema({
     },
     dateAdded: {
         type: Date,
-        default: Date.now
+        default: function() {
+            return new Date(); // Use function to get current date
+        }
     }
 }, {
     timestamps: true
@@ -46,13 +48,22 @@ const userSchema = new mongoose.Schema({
 // Password hashing middleware
 userSchema.pre('save', async function(next) {
     if (!this.isModified('password')) return next();
-    this.password = await bcrypt.hash(this.password, 12);
-    next();
+    try {
+        this.password = await bcrypt.hash(this.password, 12);
+        next();
+    } catch (error) {
+        next(error);
+    }
 });
 
-// Password comparison method
+// Password comparison method - FIXED VERSION
 userSchema.methods.correctPassword = async function(candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
+    try {
+        return await bcrypt.compare(candidatePassword, this.password);
+    } catch (error) {
+        console.error('Password comparison error:', error);
+        return false;
+    }
 };
 
 // Create indexes for better query performance
