@@ -8,12 +8,7 @@
     "dev": "nodemon server.js",
     "test": "echo \"No tests specified\" && exit 0"
   },
-  "keywords": [
-    "crm",
-    "task-management",
-    "mongodb",
-    "express"
-  ],
+  "keywords": ["crm", "task-management", "mongodb", "express"],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
