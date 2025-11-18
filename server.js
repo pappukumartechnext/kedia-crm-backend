@@ -99,5 +99,6 @@ connectDB();
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📍 Health check: https://your-backend.onrender.com/health`);
+    console.log(`📍 Health check: https://kedia-crm-backend.onrender.com/health`);
+
 });
