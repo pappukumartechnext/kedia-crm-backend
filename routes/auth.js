@@ -1,128 +1,85 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-// Login
-router.post('/login', async (req, res) => {
+// Get all users (Admin only)
+router.get('/', auth, async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
+    if (req.user.type !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
-    const user = await User.findOne({ email });
-    if (!user || !(await user.correctPassword(password, user.password))) {
-      return res.status(401).json({ message: 'Invalid email or password' });
-    }
-
-    const token = jwt.sign(
-      { id: user._id, email: user.email, type: user.type },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        type: user.type,
-        phone: user.phone,
-        department: user.department
-      }
-    });
+    const users = await User.find().select('-password');
+    res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Verify token
-router.get('/verify', async (req, res) => {
+// Create user (Admin only)
+router.post('/', auth, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+    if (req.user.type !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
+    const user = new User(req.body);
+    await user.save();
     
-    if (!user) {
-      return res.status(401).json({ message: 'User not found' });
-    }
-
-    res.json({ user });
+    const userWithoutPassword = await User.findById(user._id).select('-password');
+    res.status(201).json(userWithoutPassword);
   } catch (error) {
-    res.status(401).json({ message: 'Invalid token' });
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Email already exists' });
+    }
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-
-const router = express.Router();
-
-// Login
-router.post('/login', async (req, res) => {
+// Update user
+router.put('/:id', auth, async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
+    if (req.user.type !== 'admin' && req.user.id !== req.params.id) {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
-    const user = await User.findOne({ email });
-    if (!user || !(await user.correctPassword(password, user.password))) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const token = jwt.sign(
-      { id: user._id, email: user.email, type: user.type },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        type: user.type,
-        phone: user.phone,
-        department: user.department
-      }
-    });
+    res.json(user);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Verify token
-router.get('/verify', async (req, res) => {
+// Delete user (Admin only)
+router.delete('/:id', auth, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+    if (req.user.type !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
-    
+    if (req.user.id === req.params.id) {
+      return res.status(400).json({ message: 'Cannot delete your own account' });
+    }
+
+    const user = await User.findByIdAndDelete(req.params.id);
     if (!user) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ user });
+    res.json({ message: 'User deleted successfully' });
   } catch (error) {
-    res.status(401).json({ message: 'Invalid token' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
