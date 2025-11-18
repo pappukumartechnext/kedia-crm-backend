@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
@@ -39,7 +38,6 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ status: 1 });
 
-=======
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -84,6 +82,4 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
   return await bcrypt.compare(candidatePassword, userPassword);
 };
-
->>>>>>> 846c1211543b726bac61a5334e07086ffc79e154
 module.exports = mongoose.model('User', userSchema);
