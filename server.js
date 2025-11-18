@@ -14,7 +14,7 @@ app.use(cors({
         'http://localhost:8080',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:8080',
-        'https://remarkable-sunburst-88f5ff.netlify.app', // REMOVED trailing slash
+        'https://remarkable-sunburst-88f5ff.netlify.app',
         'https://*.netlify.app'
     ],
     credentials: true,
@@ -95,7 +95,79 @@ app.get('/api/test-db', async (req, res) => {
     }
 });
 
-// Create default users function
+// RESET AND CREATE DEFAULT USERS FUNCTION
+async function resetAndCreateDefaultUsers() {
+    try {
+        console.log('🔄 Resetting users...');
+        
+        // Delete existing users
+        await User.deleteMany({});
+        console.log('🗑️  Existing users deleted');
+
+        // Create admin user with fresh date
+        const adminPassword = await bcrypt.hash('admin123', 12);
+        const adminUser = new User({
+            name: 'Admin User',
+            email: 'admin@kedia.com',
+            password: adminPassword,
+            type: 'admin',
+            phone: '9876543210',
+            department: 'Administration',
+            dateAdded: new Date() // Fresh current date
+        });
+        await adminUser.save();
+        console.log('✅ Default admin user created');
+
+        // Create staff user with fresh date
+        const staffPassword = await bcrypt.hash('staff123', 12);
+        const staffUser = new User({
+            name: 'Staff User',
+            email: 'staff@kedia.com',
+            password: staffPassword,
+            type: 'staff',
+            phone: '9876543211',
+            department: 'Operations',
+            dateAdded: new Date() // Fresh current date
+        });
+        await staffUser.save();
+        console.log('✅ Default staff user created');
+
+        console.log('✅ Default users reset completed');
+        
+        // Verify the users were created
+        const users = await User.find().select('-password');
+        console.log(`📊 Total users in database: ${users.length}`);
+        
+    } catch (error) {
+        console.error('❌ Error resetting users:', error);
+        throw error;
+    }
+}
+
+// TEMPORARY RESET ENDPOINT - REMOVE AFTER USE
+app.post('/api/reset-users', async (req, res) => {
+    try {
+        console.log('🔄 Manual user reset requested...');
+        await resetAndCreateDefaultUsers();
+        res.json({ 
+            success: true,
+            message: 'Users reset successfully! You can now login with:',
+            credentials: {
+                admin: { email: 'admin@kedia.com', password: 'admin123' },
+                staff: { email: 'staff@kedia.com', password: 'staff123' }
+            }
+        });
+    } catch (error) {
+        console.error('❌ Reset failed:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Reset failed', 
+            error: error.message 
+        });
+    }
+});
+
+// Create default users function (for normal startup)
 async function createDefaultUsers() {
     try {
         // Check if admin user already exists
@@ -108,10 +180,13 @@ async function createDefaultUsers() {
                 password: adminPassword,
                 type: 'admin',
                 phone: '9876543210',
-                department: 'Administration'
+                department: 'Administration',
+                dateAdded: new Date()
             });
             await adminUser.save();
             console.log('✅ Default admin user created');
+        } else {
+            console.log('✅ Admin user already exists');
         }
 
         // Check if staff user already exists
@@ -124,13 +199,21 @@ async function createDefaultUsers() {
                 password: staffPassword,
                 type: 'staff',
                 phone: '9876543211',
-                department: 'Operations'
+                department: 'Operations',
+                dateAdded: new Date()
             });
             await staffUser.save();
             console.log('✅ Default staff user created');
+        } else {
+            console.log('✅ Staff user already exists');
         }
 
         console.log('✅ Default users setup completed');
+        
+        // Log current user count
+        const userCount = await User.countDocuments();
+        console.log(`📊 Total users in database: ${userCount}`);
+        
     } catch (error) {
         console.error('❌ Error creating default users:', error);
     }
@@ -184,10 +267,14 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 Health check: http://0.0.0.0:${PORT}/health`);
     console.log(`📍 CORS Test: http://0.0.0.0:${PORT}/api/cors-test`);
+    console.log(`📍 User Reset: http://0.0.0.0:${PORT}/api/reset-users (TEMPORARY)`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
     console.log('✅ CORS configured for:');
     console.log('   - http://localhost:3000');
     console.log('   - http://localhost:8080');
     console.log('   - https://remarkable-sunburst-88f5ff.netlify.app');
     console.log('   - https://*.netlify.app');
+    console.log('\n🔑 Default Login Credentials:');
+    console.log('   Admin: admin@kedia.com / admin123');
+    console.log('   Staff: staff@kedia.com / staff123');
 });
