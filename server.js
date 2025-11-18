@@ -2,29 +2,21 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
+const User = require('./models/User');
 require('dotenv').config();
 
 const app = express();
 
-// Enhanced CORS configuration
-const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:8080',
-    'https://remarkable-sunburst-88f5ff.netlify.app/',
-    'https://*.netlify.app'
-];
-
+// FIXED CORS Configuration
 app.use(cors({
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
-        }
-        return callback(null, true);
-    },
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:8080',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:8080',
+        'https://remarkable-sunburst-88f5ff.netlify.app', // REMOVED trailing slash
+        'https://*.netlify.app'
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
@@ -51,7 +43,16 @@ app.get('/health', async (req, res) => {
             message: 'Kedia CRM Backend is running',
             database: dbStatus,
             timestamp: new Date().toISOString(),
-            environment: process.env.NODE_ENV || 'development'
+            environment: process.env.NODE_ENV || 'development',
+            cors: {
+                enabled: true,
+                allowedOrigins: [
+                    'http://localhost:3000',
+                    'http://localhost:8080',
+                    'https://remarkable-sunburst-88f5ff.netlify.app',
+                    'https://*.netlify.app'
+                ]
+            }
         });
     } catch (error) {
         res.status(500).json({ 
@@ -62,11 +63,20 @@ app.get('/health', async (req, res) => {
     }
 });
 
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+    res.json({
+        message: 'CORS is working correctly!',
+        timestamp: new Date().toISOString(),
+        requestOrigin: req.headers.origin || 'No origin header',
+        corsEnabled: true
+    });
+});
+
 // Test database connection route
 app.get('/api/test-db', async (req, res) => {
     try {
         // Test database connection by counting users
-        const User = require('./models/User');
         const userCount = await User.countDocuments();
         
         res.json({
@@ -88,8 +98,6 @@ app.get('/api/test-db', async (req, res) => {
 // Create default users function
 async function createDefaultUsers() {
     try {
-        const User = require('./models/User');
-        
         // Check if admin user already exists
         const adminExists = await User.findOne({ email: 'admin@kedia.com' });
         if (!adminExists) {
@@ -175,5 +183,11 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 Health check: http://0.0.0.0:${PORT}/health`);
+    console.log(`📍 CORS Test: http://0.0.0.0:${PORT}/api/cors-test`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV}`);
+    console.log('✅ CORS configured for:');
+    console.log('   - http://localhost:3000');
+    console.log('   - http://localhost:8080');
+    console.log('   - https://remarkable-sunburst-88f5ff.netlify.app');
+    console.log('   - https://*.netlify.app');
 });
