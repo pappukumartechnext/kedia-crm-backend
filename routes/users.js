@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const express = require('express');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
@@ -84,7 +83,6 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-=======
 const express = require('express');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
@@ -170,5 +168,4 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
->>>>>>> 846c1211543b726bac61a5334e07086ffc79e154
 module.exports = router;
